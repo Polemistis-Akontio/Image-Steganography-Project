@@ -7,10 +7,8 @@ import time
 import math
 
 testFile = "testfile.txt"
-testImageWEBP = "testImage.webp"
-#imageKey = randprime(6, 100)#must be prime number, otherwise when iterating through the pixels it'll loop and skip values
-#imageKey = 37
-testBinary = "01001000 01010100 01010100 01010000 01010011 00100000 01101011 01100101 01100101 01110000 01110011 00100000 01100100 01100001 01110100 01100001 00100000 01110011 01100101 01100011 01110101 01110010 01100101 00101110"
+testImageWEBP = "testImage.png"
+testBinary = "010010000101010001010100010100000101001100100000011010110110010101100101011100000111001100100000011001000110000101110100011000010010000001110011011001010110001101110101011100100110010100101110"
 
 
 def encrypt():
@@ -29,10 +27,10 @@ def encodeImage(testImage, binaryFile):
     rows, columns, channels = img.shape
     totalVals = rows * columns * channels
     
-    stepKey = randprime(6, 100)
+    stepKey = randprime(6, 1000)
     while math.gcd(stepKey, totalVals) != 1: #checks to make sure the key is coprime, to ensure each pixel will only be accessed once
         print(stepKey)
-        stepKey = randprime(6, 100)
+        stepKey = randprime(6, 1000)
         print(stepKey)
     
     valueDict = {}
@@ -44,9 +42,7 @@ def encodeImage(testImage, binaryFile):
                 count += 1
     
     steppedDict = {}
-    
-    keyList = list(valueDict.keys())
-    
+    keyList = list(valueDict.keys())    
     visitedCount = 0
     index = 0
     
@@ -62,17 +58,48 @@ def encodeImage(testImage, binaryFile):
     
     for i in range(totalVals):
         if i not in steppedDict: #double checks to make sure there aren't any keys missing from steppedDict
-            print(i)
+            print("Missing key: ", i)
 
+    steppedKeyList = list(steppedDict.keys())
 
-    for key in steppedDict:
-        r, c, ch = steppedDict[key]
-        print(binary_repr(img[r, c, ch], 8))     
+    charIndex = 0
+    for char in binaryFile:
+        #print("Message char: ", char)
+        r, c, ch = steppedDict[steppedKeyList[charIndex]]
+        string = binary_repr(img[r, c, ch], 8)
+        checkValue = string[7]
+        #print("Image values: ", img[r, c])
+        #print("Last digit of Pixel: ", string[7])
+        if char == checkValue:
+            #print("Char == checkValue")
+            pass
+        else:
+            #print("Char != checkValue")
+            #print("Old String: ", string)
+            val = img[r, c, ch]
+            if val == 255:
+                img[r, c, ch] = val - 1
+                #print("Value: ", val)
+                #print("New String: ", binary_repr(img[r, c, ch], 8))
+            else:
+                img[r, c, ch] = val + 1
+                #print("Value: ", val)
+                #print("New String: ", binary_repr(img[r, c, ch], 8))
+        charIndex += 1
 
+    print("StepKey: ", stepKey)
+    cv.imwrite("newSavedImage.png", img, [cv.IMWRITE_WEBP_QUALITY, 100])
+    with open("savedInfo.txt", "w") as file:
+        file.write(f"Encoding Key: {stepKey}\n")
+        file.write("Encryption Key:  \n")
+        file.write("File saved as: newSavedImage.png")
 
-    #print(valueDict)
-    #cv.imshow('', img)
-    #cv.waitKey(0)
+    original = cv.imread("testImage.png")
+    cv.imwrite("testImage.png", original, [cv.IMWRITE_WEBP_QUALITY, 100]) #makes sure the original image and the altered image are roughly the same file size
+    newImage = cv.imread("newSavedImage.png")
+    combined = np.hstack((original, img, newImage))
+    cv.imshow("side by side", combined)
+    cv.waitKey(0)
     
-    
+
 encodeImage(testImageWEBP, testBinary)
