@@ -1,3 +1,2 @@
-Encoding Key: 251
-Encryption Key:  
+Encoding Key: 359
 File saved as: newSavedImage.png

@@ -3,21 +3,40 @@ from sympy import randprime
 import numpy as np
 from numpy import binary_repr
 import cv2 as cv
-import time
 import math
+import os
+from hashlib import pbkdf2_hmac
+import getpass
+import struct
 
 testFile = "testfile.txt"
-testImageWEBP = "testImage.png"
-testBinary = "010010000101010001010100010100000101001100100000011010110110010101100101011100000111001100100000011001000110000101110100011000010010000001110011011001010110001101110101011100100110010100101110"
+testImage = "testImage.png"
 
-
-def encrypt():
+def encrypt(file, encryptionKey):
     
-    return
+    salt = os.urandom(16) #need a salt to ensure secure encryption against rainbow tables
     
-def parseImage():
+    key32 = pbkdf2_hmac(   #AES requires a 32 bit key, so we use sha256 hash function
+        hash_name="sha256",
+        password=encryptionKey.encode(),
+        salt=salt,
+        iterations=100_000,
+        dklen=32
+        )
     
-    return
+    with open(file, "rb") as f: #read the file byte by byte
+        plaintext = f.read()
+    
+    cipher = AES.new(key32, AES.MODE_GCM) #make the cipher based on the 32 bit key
+    ciphertext, tag = cipher.encrypt_and_digest(plaintext) #encrypt the plaintext, tag is for integrity assurance
+    nonce = cipher.nonce
+    
+    header = struct.pack(">I", len(ciphertext))
+    binary_blob = salt + nonce + tag + header + ciphertext #puts all the encryption information except the password into the beginning of cipher
+    bit_string = ''.join(f"{byte:08b}" for byte in binary_blob) #converts the bytes to just 0 and 1s
+    #print(bit_string)
+    
+    return bit_string
 
 def encodeImage(testImage, binaryFile):
     
@@ -88,18 +107,21 @@ def encodeImage(testImage, binaryFile):
         charIndex += 1
 
     print("StepKey: ", stepKey)
-    cv.imwrite("newSavedImage.png", img, [cv.IMWRITE_WEBP_QUALITY, 100])
+    print("If the image doesn't appear, click the icon on the taskbar")
+    cv.imwrite("newSavedImage.png", img, [cv.IMWRITE_PNG_COMPRESSION, 0])
     with open("savedInfo.txt", "w") as file:
         file.write(f"Encoding Key: {stepKey}\n")
-        file.write("Encryption Key:  \n")
         file.write("File saved as: newSavedImage.png")
 
     original = cv.imread("testImage.png")
-    cv.imwrite("testImage.png", original, [cv.IMWRITE_WEBP_QUALITY, 100]) #makes sure the original image and the altered image are roughly the same file size
+    cv.imwrite("testImage.png", original, [cv.IMWRITE_PNG_COMPRESSION, 0]) #makes sure the original image and the altered image are roughly the same file size
     newImage = cv.imread("newSavedImage.png")
     combined = np.hstack((original, img, newImage))
     cv.imshow("side by side", combined)
     cv.waitKey(0)
     
 
-encodeImage(testImageWEBP, testBinary)
+password = getpass.getpass("Enter an Encryption Password(You must remember this to decrypt later): ")
+
+binary = encrypt(testFile, password)
+encodeImage(testImage, binary)
