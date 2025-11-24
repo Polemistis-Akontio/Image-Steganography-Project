@@ -424,9 +424,10 @@ class SteganographyUI:
         ## Decoder logic goes here vvvvvvv
         try:
             self.decode_image()
-            messagebox.showinfo(self.plaintext)
+            # Show decoded message in a new window
+            self.show_decoded_message()
         except Exception as e:
-            messagebox.showerror("Error", f"Encoding failed: {str(e)}")
+            messagebox.showerror("Error", f"Decoding failed: {str(e)}")
         
     
        
@@ -525,6 +526,86 @@ class SteganographyUI:
         
         print("Decrypting data...")
         self.decrypt_and_save(bitstring, self.decode_password_entry.get(), "DECODED_OUTPUT.bin")
+    
+    def show_decoded_message(self):
+        """Display decoded message in a new window with download option"""
+        # Create new window
+        decode_window = tk.Toplevel(self.root)
+        decode_window.title("Decoded Message")
+        decode_window.geometry("700x500")
+        
+        # Title
+        title = ttk.Label(decode_window, text="Decoded Message", 
+                         font=('Arial', 14, 'bold'))
+        title.pack(pady=10)
+        
+        # Frame for text widget with scrollbar
+        text_frame = ttk.Frame(decode_window)
+        text_frame.pack(pady=10, padx=20, fill='both', expand=True)
+        
+        # Scrollbar
+        scrollbar = ttk.Scrollbar(text_frame)
+        scrollbar.pack(side='right', fill='y')
+        
+        # Text widget to display message
+        text_widget = tk.Text(text_frame, wrap='word', 
+                             yscrollcommand=scrollbar.set,
+                             font=('Courier New', 10),
+                             padx=10, pady=10)
+        text_widget.pack(side='left', fill='both', expand=True)
+        scrollbar.config(command=text_widget.yview)
+        
+        # Try to decode the plaintext as UTF-8 text
+        try:
+            decoded_text = self.plaintext.decode('utf-8')
+        except UnicodeDecodeError:
+            # If not UTF-8, display as hex
+            decoded_text = f"[Binary Data - {len(self.plaintext)} bytes]\n\n"
+            decoded_text += "Hex representation:\n"
+            decoded_text += self.plaintext.hex()
+        
+        # Insert the decoded message
+        text_widget.insert('1.0', decoded_text)
+        text_widget.config(state='disabled')  # Make read-only
+        
+        # Button frame
+        button_frame = ttk.Frame(decode_window)
+        button_frame.pack(pady=10)
+        
+        # Download button
+        download_btn = ttk.Button(button_frame, text="Save File", 
+                                 command=lambda: self.save_decoded_message(decoded_text),
+                                 style='Accent.TButton')
+        download_btn.pack(side='left', padx=5)
+        
+        # Close button
+        close_btn = ttk.Button(button_frame, text="Close", 
+                              command=decode_window.destroy)
+        close_btn.pack(side='left', padx=5)
+        
+        # Status message
+        status_label = ttk.Label(decode_window, 
+                                text="Message decoded successfully!", 
+                                foreground='green')
+        status_label.pack(pady=5)
+    
+    def save_decoded_message(self, decoded_text):
+        """Save decoded message to a text file"""
+        # Ask user where to save
+        output_path = filedialog.asksaveasfilename(
+            defaultextension=".txt",
+            filetypes=[("Text files", "*.txt"), ("All files", "*.*")],
+            title="Save Decoded Message As"
+        )
+        
+        if output_path:
+            try:
+                with open(output_path, 'w', encoding='utf-8') as f:
+                    f.write(decoded_text)
+                messagebox.showinfo("Success", 
+                                  f"Message saved successfully to:\n{os.path.basename(output_path)}")
+            except Exception as e:
+                messagebox.showerror("Error", f"Failed to save file: {str(e)}")
 
 def main():
     try:
