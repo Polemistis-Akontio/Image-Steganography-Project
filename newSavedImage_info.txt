@@ -1,0 +1,3 @@
+Encoding Key: 809
+Encoded Image: newSavedImage.png
+Original File: testfile.txt

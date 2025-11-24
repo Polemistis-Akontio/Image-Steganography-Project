@@ -1,0 +1,11 @@
+The shipment is being moved @ midnight on Wednesday 11/27/2025. It's transporting 12 tons of chemicals, due to it's size you
+must keep customs from searching too thoroughly. (Give them an easy find in another container)
+
+public class Main{
+    public static void main(String[] args){
+        System.out.println("Test code to see if code stays formatted thru binary and encryption");
+        System.out.println((2 * 2 / 4) + 6 - 3);
+        //comment for same purpose
+
+    }
+}

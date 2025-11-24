@@ -203,8 +203,16 @@ class SteganographyUI:
                                              foreground='black')
     
     def compare_images(self):
-       """Compare logic goes here"""
-       
+        """Compare logic goes here"""
+        if self.compare_original_image:
+            originalFile = cv.imread(self.compare_original_image)
+        if self.compare_encoded_image:
+            encodedFile = cv.imread(self.compare_encoded_image)
+        combined = np.hstack((originalFile, encodedFile))
+        cv.imshow("side by side", combined)
+        cv.waitKey(0)
+        
+
     def browse_image(self):
         """Browse for image to encode"""
         filename = filedialog.askopenfilename(
@@ -272,6 +280,9 @@ class SteganographyUI:
         
         rows, columns, channels = img.shape
         totalVals = rows * columns * channels
+        
+        if len(binaryFile) % 8 != 0:
+            print("binary file isn't equal to 0")
         
         # Check if message fits
         if len(binaryFile) > totalVals:
@@ -411,9 +422,109 @@ class SteganographyUI:
             return
         
         ## Decoder logic goes here vvvvvvv
-        ## try:
-            
+        try:
+            self.decode_image()
+            messagebox.showinfo(self.plaintext)
+        except Exception as e:
+            messagebox.showerror("Error", f"Encoding failed: {str(e)}")
+        
+    
+       
+    def extract_binary_from_image(self, img: str, step_key: int) -> str:
+        """Extracts LSB bits from image using the same step pattern as encoding."""
+        assert img is not None, "Invalid image path"
 
+        rows, cols, channels = img.shape
+        total_vals = rows * cols * channels
+
+        # Rebuild valueDict
+        value_dict = {}
+        count = 0
+        for r in range(rows):
+            for c in range(cols):
+                for ch in range(channels):
+                    value_dict[count] = (r, c, ch)
+                    count += 1
+
+        # Rebuild steppedDict
+        stepped_dict = {}
+        key_list = list(value_dict.keys())
+        visited = 0
+        index = 0
+
+        while visited < len(key_list):
+            key = key_list[index % len(key_list)]
+            if key not in stepped_dict:
+                stepped_dict[key] = value_dict[key]
+                index += step_key
+                visited += 1
+            else:
+                break
+
+        stepped_keys = list(stepped_dict.keys())
+
+        # Extract LSB bits in the exact stored order
+        bits = []
+        for idx in stepped_keys:
+            r, c, ch = stepped_dict[idx]
+            bits.append(binary_repr(img[r, c, ch], 8)[7])
+
+        return "".join(bits)
+
+    def decrypt_and_save(self, binary_string: str, password: str, output_file: str):
+        """Reconstructs the encrypted blob, decrypts it using AES-GCM, and writes plaintext."""
+        # Convert bitstring → bytes
+        while len(binary_string) % 8 != 0:
+            binary_string += "0"
+
+        byte_array = bytearray()
+        for i in range(0, len(binary_string), 8):
+            byte_array.append(int(binary_string[i:i+8], 2))
+
+        blob = bytes(byte_array)
+
+        # Extract the structured fields
+        salt = blob[:16]
+        nonce = blob[16:32]
+        tag = blob[32:48]
+        header = blob[48:52]
+        ciphertext_length = struct.unpack(">I", header)[0]
+
+        ciphertext_start = 52
+        ciphertext_end = 52 + ciphertext_length
+        ciphertext = blob[ciphertext_start:ciphertext_end]
+
+        # Re-derive AES key
+        key32 = pbkdf2_hmac(
+            hash_name="sha256",
+            password=password.encode(),
+            salt=salt,
+            iterations=100_000,
+            dklen=32
+        )
+
+        cipher = AES.new(key32, AES.MODE_GCM, nonce=nonce)
+        plaintext = cipher.decrypt_and_verify(ciphertext, tag)
+
+        self.plaintext = plaintext
+        
+        # Write the restored file
+        with open(output_file, "wb") as f:
+            f.write(plaintext)
+
+        print(f"Decrypted file saved as: {output_file}")
+    
+    def decode_image(self):
+        """Convenience wrapper: loads stepKey from savedInfo.txt and performs full decode."""
+
+        step_key = int(self.key_entry.get())
+        image_file = cv.imread(self.selected_encoded_image)
+
+        print("Extracting embedded bits...")
+        bitstring = self.extract_binary_from_image(image_file, step_key)
+        
+        print("Decrypting data...")
+        self.decrypt_and_save(bitstring, self.decode_password_entry.get(), "DECODED_OUTPUT.bin")
 
 def main():
     try:
